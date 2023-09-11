@@ -1,42 +1,35 @@
 import numpy as np
-from scipy.stats import multivariate_normal
+from scipy.stats import norm
 
-# Generate synthetic data
-np.random.seed(42)
-num_samples = 300
-mean1 = [2, 3]
-cov1 = [[1, 0.5], [0.5, 1]]
-mean2 = [7, 8]
-cov2 = [[1.2, -0.6], [-0.6, 1.2]]
-data1 = np.random.multivariate_normal(mean1, cov1, num_samples // 2)
-data2 = np.random.multivariate_normal(mean2, cov2, num_samples // 2)
-data = np.vstack((data1, data2))
+# Generate synthetic data from two Gaussian distributions
+np.random.seed(0)
+data = np.concatenate([np.random.normal(0, 1, 300), np.random.normal(5, 1, 700)])
 
-# Initialize GMM parameters
-num_clusters = 2
-num_features = data.shape[1]
-pi = np.ones(num_clusters) / num_clusters
-mu = np.random.rand(num_clusters, num_features)
-sigma = [np.eye(num_features)] * num_clusters
+# Initialize parameters
+mu1, sigma1 = -1, 1
+mu2, sigma2 = 1, 1
+pi1, pi2 = 0.5, 0.5
 
-# EM Algorithm
-num_iterations = 50
-for _ in range(num_iterations):
-    # E-step: Compute responsibilities
-    responsibilities = np.zeros((num_samples, num_clusters))
-    for k in range(num_clusters):
-        responsibilities[:, k] = pi[k] * multivariate_normal.pdf(data, mean=mu[k], cov=sigma[k])
-    responsibilities /= responsibilities.sum(axis=1, keepdims=True)
-    
-    # M-step: Update parameters
-    N_k = responsibilities.sum(axis=0)
-    pi = N_k / num_samples
-    mu = (responsibilities.T @ data) / N_k[:, np.newaxis]
-    for k in range(num_clusters):
-        diff = data - mu[k]
-        sigma[k] = (diff.T @ (diff * responsibilities[:, k][:, np.newaxis])) / N_k[k]
+# Define the number of iterations for the EM algorithm
+num_iterations = 100
 
-# Print the estimated parameters
-print("Estimated Mixing Coefficients (pi):", pi)
-print("Estimated Means (mu):", mu)
-print("Estimated Covariances (sigma):", sigma)
+for iteration in range(num_iterations):
+    # Expectation step (E-step)
+    likelihood1 = norm.pdf(data, loc=mu1, scale=sigma1)
+    likelihood2 = norm.pdf(data, loc=mu2, scale=sigma2)
+    total_likelihood = pi1 * likelihood1 + pi2 * likelihood2
+    posterior1 = (pi1 * likelihood1) / total_likelihood
+    posterior2 = (pi2 * likelihood2) / total_likelihood
+
+    # Maximization step (M-step)
+    mu1 = np.sum(posterior1 * data) / np.sum(posterior1)
+    mu2 = np.sum(posterior2 * data) / np.sum(posterior2)
+    sigma1 = np.sqrt(np.sum(posterior1 * (data - mu1)**2) / np.sum(posterior1))
+    sigma2 = np.sqrt(np.sum(posterior2 * (data - mu2)**2) / np.sum(posterior2))
+    pi1 = np.mean(posterior1)
+    pi2 = np.mean(posterior2)
+
+# Print the final estimated parameters
+print("Estimated Parameters:")
+print(f"mu1: {mu1:.2f}, sigma1: {sigma1:.2f}, pi1: {pi1:.2f}")
+print(f"mu2: {mu2:.2f}, sigma2: {sigma2:.2f}, pi2: {pi2:.2f}")
